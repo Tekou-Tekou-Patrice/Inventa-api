@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Inventa local" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="Inventa" />
+    <option name="ACTIVE_PROFILES" value="local" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.onescompany.Inventa.InventaApplication" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
