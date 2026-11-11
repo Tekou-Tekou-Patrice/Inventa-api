@@ -57,8 +57,9 @@ public class SecurityConfig {
         configuration.setAllowedOriginPatterns(
                 Arrays.stream(origins.split(",")).map(String::trim).filter(value -> !value.isEmpty()).toList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
-        configuration.setExposedHeaders(List.of("WWW-Authenticate"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Range"));
+        configuration.setExposedHeaders(
+                List.of("WWW-Authenticate", "Accept-Ranges", "Content-Range", "Content-Length"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -18,7 +18,9 @@ import jakarta.persistence.Table;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import com.onescompany.Inventa.domain.PlantationField;
+import com.onescompany.Inventa.domain.Worker;
 
 @Entity
 @Table(name = "app_users")
@@ -40,12 +42,19 @@ public class AppUser implements UserDetails {
     @Column(nullable = false)
     private boolean enabled = true;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean deleted;
+
     @Column(length = 40)
     private String phoneNumber = "";
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "field_id")
     private PlantationField field;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payroll_worker_id", unique = true)
+    private Worker payrollWorker;
 
     protected AppUser() {
     }
@@ -66,6 +75,17 @@ public class AppUser implements UserDetails {
         this.phoneNumber = phoneNumber;
     }
 
+    public AppUser(
+            String username,
+            String password,
+            UserRole role,
+            String phoneNumber,
+            PlantationField field,
+            Worker payrollWorker) {
+        this(username, password, role, phoneNumber, field);
+        this.payrollWorker = payrollWorker;
+    }
+
     public Long getId() {
         return id;
     }
@@ -78,6 +98,11 @@ public class AppUser implements UserDetails {
         this.enabled = enabled;
     }
 
+    public void deleteFromManagement() {
+        this.deleted = true;
+        this.enabled = false;
+    }
+
     public void assignField(PlantationField field) {
         this.field = field;
     }
@@ -86,9 +111,19 @@ public class AppUser implements UserDetails {
         this.phoneNumber = phoneNumber;
     }
 
+    public void updateCredentials(String username, String password, String phoneNumber) {
+        this.username = username;
+        if (password != null) {
+            this.password = password;
+        }
+        this.phoneNumber = phoneNumber;
+    }
+
     public String getUsernameValue() { return username; }
     public PlantationField getField() { return field; }
     public String getPhoneNumber() { return phoneNumber; }
+    public Worker getPayrollWorker() { return payrollWorker; }
+    public boolean isDeleted() { return deleted; }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

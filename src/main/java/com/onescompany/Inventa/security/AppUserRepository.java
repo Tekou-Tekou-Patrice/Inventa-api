@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     Optional<AppUser> findByUsername(String username);
+    Optional<AppUser> findByPayrollWorkerId(Long workerId);
 
     boolean existsByUsernameIgnoreCase(String username);
 

@@ -3,5 +3,6 @@ package com.onescompany.Inventa.security;
 public enum UserRole {
     DIRECTOR,
     ASSISTANT,
-    FIELD_MANAGER
+    FIELD_MANAGER,
+    TECHNICAL_MANAGER
 }

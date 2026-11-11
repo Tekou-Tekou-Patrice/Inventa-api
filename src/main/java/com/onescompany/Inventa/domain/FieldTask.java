@@ -1,5 +1,6 @@
 package com.onescompany.Inventa.domain;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
@@ -23,6 +24,7 @@ import jakarta.persistence.ManyToOne;
 public class FieldTask {
     public enum Status { IN_PROGRESS, TO_DO, DONE }
     public enum Type { ASSIGNED_WORKERS, SEASONAL_WORKERS }
+    public enum Priority { URGENT, MEDIUM, NORMAL }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,11 +33,24 @@ public class FieldTask {
     @Column(nullable = false, length = 240)
     private String title;
 
+    @Column(length = 1000)
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 16)
+    private Priority priority = Priority.NORMAL;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "field_task_workers",
             joinColumns = @JoinColumn(name = "task_id"),
             inverseJoinColumns = @JoinColumn(name = "worker_id"))
     private Set<Worker> assignees = new HashSet<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "field_task_seasonal_workers",
+            joinColumns = @JoinColumn(name = "task_id"),
+            inverseJoinColumns = @JoinColumn(name = "seasonal_worker_id"))
+    private Set<SeasonalWorker> seasonalAssignees = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -54,6 +69,11 @@ public class FieldTask {
 
     private Integer seasonalWorkerCount;
 
+    @Column(precision = 10, scale = 2)
+    private BigDecimal plannedHectares;
+
+    private Long pricePerHectare;
+
     @Column(nullable = false, length = 80)
     private String createdBy;
 
@@ -70,13 +90,32 @@ public class FieldTask {
 
     public FieldTask(
             String title, Set<Worker> assignees, String createdBy, PlantationField field, Type type) {
+        this(title, title, Priority.NORMAL, assignees, Set.of(), createdBy, field, type, null, null);
+    }
+
+    public FieldTask(
+            String title,
+            String description,
+            Priority priority,
+            Set<Worker> assignees,
+            Set<SeasonalWorker> seasonalAssignees,
+            String createdBy,
+            PlantationField field,
+            Type type,
+            BigDecimal plannedHectares,
+            Long pricePerHectare) {
         this.title = title;
+        this.description = description;
+        this.priority = priority;
         this.assignees = assignees;
+        this.seasonalAssignees = seasonalAssignees;
         this.status = Status.TO_DO;
         this.type = type;
         this.createdAt = Instant.now();
         this.createdBy = createdBy;
         this.field = field;
+        this.plannedHectares = plannedHectares;
+        this.pricePerHectare = pricePerHectare;
     }
 
     public void updateStatus(Status status, Long actualCost, Integer seasonalWorkerCount) {
@@ -96,6 +135,7 @@ public class FieldTask {
     public Long getId() { return id; }
     public String getTitle() { return title; }
     public Set<Worker> getAssignees() { return assignees; }
+    public Set<SeasonalWorker> getSeasonalAssignees() { return seasonalAssignees; }
     public Status getStatus() { return status; }
     public Type getType() { return type; }
     public Instant getCreatedAt() { return createdAt; }
@@ -104,4 +144,15 @@ public class FieldTask {
     public Integer getSeasonalWorkerCount() { return seasonalWorkerCount; }
     public String getCreatedBy() { return createdBy; }
     public PlantationField getField() { return field; }
+    public String getDescription() { return description == null ? title : description; }
+    public Priority getPriority() { return priority == null ? Priority.NORMAL : priority; }
+    public BigDecimal getPlannedHectares() { return plannedHectares; }
+    public Long getPricePerHectare() { return pricePerHectare; }
+
+    public void assignSeasonalWorkers(Set<SeasonalWorker> workers) {
+        if (type != Type.SEASONAL_WORKERS) {
+            throw new IllegalStateException("Only a seasonal task can have seasonal workers.");
+        }
+        this.seasonalAssignees = new HashSet<>(workers);
+    }
 }

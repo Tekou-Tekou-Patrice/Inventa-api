@@ -7,11 +7,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.api.client.http.apache.v2.ApacheHttpTransport;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.BatchResponse;
@@ -46,15 +50,24 @@ public class PushNotificationService {
     }
 
     public void notifyRole(UserRole role, String title, String body, String type) {
-        publish(new PushNotificationEvent(role, null, title, body, type));
+        publish(new PushNotificationEvent(role, null, currentUsername(), title, body, type));
     }
 
     public void notifyRoleInField(UserRole role, Long fieldId, String title, String body, String type) {
-        publish(new PushNotificationEvent(role, fieldId, title, body, type));
+        publish(new PushNotificationEvent(role, fieldId, currentUsername(), title, body, type));
     }
 
     private void publish(PushNotificationEvent event) {
         events.publishEvent(event);
+    }
+
+    private String currentUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication == null
+                        || !authentication.isAuthenticated()
+                        || authentication instanceof AnonymousAuthenticationToken
+                ? null
+                : authentication.getName();
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -62,6 +75,11 @@ public class PushNotificationService {
         List<String> usernames = event.usernames() != null
                 ? event.usernames()
                 : users.findEnabledUsernamesByRoleAndField(event.role(), event.fieldId());
+        if (event.excludedUsername() != null) {
+            usernames = usernames.stream()
+                    .filter(username -> !event.excludedUsername().equals(username))
+                    .toList();
+        }
         for (String username : usernames) {
             List<String> deviceTokens = tokens.findByUsername(username).stream()
                     .map(PushDeviceToken::getToken)
@@ -91,8 +109,8 @@ public class PushNotificationService {
                         var result = response.getResponses().get(i);
                         if (!result.isSuccessful() && result.getException() != null) {
                             FirebaseMessagingException error = result.getException();
-                            logger.warn("Push delivery failed for a registered device: {}",
-                                    error.getMessagingErrorCode());
+                            logger.warn("Push delivery failed for a registered device (code={}).",
+                                    error.getMessagingErrorCode(), error);
                             if (error.getMessagingErrorCode() != null
                                     && (error.getMessagingErrorCode().name().equals("UNREGISTERED")
                                             || error.getMessagingErrorCode().name().equals("INVALID_ARGUMENT"))) {
@@ -116,6 +134,7 @@ public class PushNotificationService {
                         try {
                             FirebaseOptions options = FirebaseOptions.builder()
                                     .setCredentials(GoogleCredentials.getApplicationDefault())
+                                    .setHttpTransport(new ApacheHttpTransport())
                                     .setProjectId(projectId)
                                     .build();
                             return FirebaseApp.initializeApp(options, "inventa-push");
@@ -130,15 +149,21 @@ public class PushNotificationService {
             List<String> usernames,
             UserRole role,
             Long fieldId,
+            String excludedUsername,
             String title,
             String body,
             String type) {
         public PushNotificationEvent(List<String> usernames, String title, String body, String type) {
-            this(usernames, null, null, title, body, type);
+            this(usernames, null, null, null, title, body, type);
         }
 
         public PushNotificationEvent(UserRole role, Long fieldId, String title, String body, String type) {
-            this(null, role, fieldId, title, body, type);
+            this(null, role, fieldId, null, title, body, type);
+        }
+
+        public PushNotificationEvent(
+                UserRole role, Long fieldId, String excludedUsername, String title, String body, String type) {
+            this(null, role, fieldId, excludedUsername, title, body, type);
         }
     }
 

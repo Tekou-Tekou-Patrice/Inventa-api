@@ -33,6 +33,16 @@ $env:INVENTA_BOOTSTRAP_FIELD_MANAGER_PHONE_NUMBER = '+2250102030406'
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=mysql"
 ```
 
+Pour le poste local XAMPP/MariaDB et le test depuis un téléphone, créez une fois la base
+`inventa_local` et son utilisateur avec les instructions du README Flutter ou vos outils MySQL. Le script
+`scripts\start-local-mysql.ps1` demande le mot de passe de cet utilisateur directement dans
+PowerShell sans l’afficher et démarre l’API avec le dialecte MariaDB. La configuration autorise aussi l’origine
+Flutter Web `http://10.209.129.175:8080`.
+
+```powershell
+.\scripts\start-local-mysql.ps1
+```
+
 Les comptes fournis par variable d’environnement sont créés au premier démarrage et conservés en
 base. Les secrets ne sont pas remplacés pour un compte existant. Aucun mot de passe par défaut
 n’est fourni. Le numéro est obligatoire pour les comptes assistant et terrain créés ainsi.
@@ -56,6 +66,10 @@ l’authentification.
 
 ## API consommée par Flutter
 
+- `GET /api/backups` (directeur uniquement) télécharge un ZIP de sauvegarde contenant les fichiers
+  binaires nécessaires à la restauration ainsi qu’un export lisible de chaque table dans
+  `donnees-csv/`; les valeurs binaires des colonnes sont encodées en Base64 dans les CSV.
+- `POST /api/backups` (directeur uniquement) restaure un backup ZIP généré par l’application.
 - `GET /api/auth/me` (renvoie également le `fieldId` du responsable terrain)
 - `GET /api/auth/director-registration`, `POST /api/auth/register-director`
 - `GET /api/workers`, `POST /api/workers`, `PUT /api/workers/{id}/salary`,

@@ -23,6 +23,9 @@ public class PlantationField {
     @Column(length = 1000)
     private String description;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean active = true;
+
     protected PlantationField() {
     }
 
@@ -38,8 +41,11 @@ public class PlantationField {
         this.description = description;
     }
 
+    public void archive() { this.active = false; }
+
     public Long getId() { return id; }
     public String getName() { return name; }
     public String getLocation() { return location; }
     public String getDescription() { return description; }
+    public boolean isActive() { return active; }
 }

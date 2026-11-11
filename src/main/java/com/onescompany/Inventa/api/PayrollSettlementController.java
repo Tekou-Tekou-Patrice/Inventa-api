@@ -228,7 +228,10 @@ public class PayrollSettlementController {
 
         PayrollSettings payrollSettings = settings.findById(PayrollSettings.SINGLETON_ID)
                 .orElseGet(() -> settings.save(new PayrollSettings(90_000, 208)));
-        long monthlyMinutes = (long) payrollSettings.getMonthlyRequiredHours() * 60;
+        int monthlyRequiredHours = worker.getMonthlyRequiredHours() == null
+                ? payrollSettings.getMonthlyRequiredHours()
+                : worker.getMonthlyRequiredHours();
+        long monthlyMinutes = (long) monthlyRequiredHours * 60;
         if (monthlyMinutes <= 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Monthly required hours are not configured.");
         }
@@ -242,10 +245,7 @@ public class PayrollSettlementController {
                     worker.getId(), start, month.atEndOfMonth());
             long minutes = records.stream()
                     .filter(record -> record.getStatus() == AttendanceRecord.Status.PRESENT)
-                    .filter(record -> record.getCheckIn() != null && record.getCheckOut() != null)
-                    .mapToLong(record -> java.time.Duration.between(
-                            record.getCheckIn(), record.getCheckOut()).toMinutes())
-                    .filter(value -> value > 0)
+                    .mapToLong(AttendanceRecord::workedMinutes)
                     .sum();
             totalMinutes += minutes;
             totalAmount += Math.round((double) worker.getSalary() * minutes / monthlyMinutes);

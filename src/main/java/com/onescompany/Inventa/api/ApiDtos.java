@@ -1,13 +1,16 @@
 package com.onescompany.Inventa.api;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -26,8 +29,9 @@ public final class ApiDtos {
     }
 
     public record WorkerResponse(
-            Long id, String name, String group, long salary, boolean active,
-            boolean salaryIsIndividual, String phoneNumber, Long fieldId, String fieldName) {
+            Long id, String name, String group, Long salary, boolean active,
+            boolean salaryIsIndividual, String phoneNumber, Long fieldId, String fieldName,
+            Integer monthlyRequiredHours) {
     }
 
     public record SalaryRequest(@Positive long salary, Boolean salaryIsIndividual) {
@@ -66,7 +70,24 @@ public final class ApiDtos {
             Instant checkOut,
             String recordedBy,
             Long fieldId,
-            String fieldName) {
+            String fieldName,
+            List<AttendanceSessionResponse> sessions) {
+    }
+
+    public record AttendanceSessionResponse(Instant checkIn, Instant checkOut) {
+    }
+
+    public record AttendanceFieldResponse(Long id, String name) {
+    }
+
+    public record AttendanceWorkerResponse(
+            Long id, String name, String group, boolean active, Long fieldId, String fieldName) {
+    }
+
+    public record AttendanceTeamResponse(
+            List<AttendanceFieldResponse> fields,
+            List<AttendanceWorkerResponse> workers,
+            List<AttendanceResponse> attendance) {
     }
 
     public enum TaskType {
@@ -77,7 +98,13 @@ public final class ApiDtos {
     public record TaskRequest(
             @NotBlank @Size(max = 240) String title,
             List<Long> assigneeIds,
-            TaskType type) {
+            TaskType type,
+            Long fieldId,
+            @Size(max = 1000) String description,
+            String priority,
+            @Digits(integer = 8, fraction = 2) @Positive BigDecimal plannedHectares,
+            @Positive Long pricePerHectare,
+            List<Long> seasonalWorkerIds) {
     }
 
     public enum TaskStatus {
@@ -104,11 +131,68 @@ public final class ApiDtos {
             Integer seasonalWorkerCount,
             String createdBy,
             Long fieldId,
-            String fieldName) {
+            String fieldName,
+            List<EvidenceResponse> evidence,
+            String description,
+            String priority,
+            BigDecimal plannedHectares,
+            Long pricePerHectare,
+            BigDecimal completedHectares,
+            Long earnedAmount,
+            Long remainingWorkCost,
+            List<Long> seasonalWorkerIds,
+            List<SeasonalWorkerResponse> seasonalWorkers,
+            List<TaskProgressResponse> progressHistory,
+            List<TaskAdvanceResponse> advances) {
+    }
+
+    public record SeasonalWorkerRequest(
+            @NotBlank @Size(max = 120) String name,
+            @NotBlank @Size(max = 40) String phoneNumber,
+            Long fieldId) {
+    }
+
+    public record SeasonalWorkerAssignmentRequest(@NotNull List<@NotNull Long> seasonalWorkerIds) {
+    }
+
+    public record SeasonalWorkerResponse(
+            Long id, String name, String phoneNumber, Long fieldId, String fieldName) {
+    }
+
+    public record TaskProgressRequest(
+            @NotNull @Digits(integer = 8, fraction = 2) @PositiveOrZero BigDecimal completedHectares,
+            @NotBlank @Size(max = 80) String idempotencyKey) {
+    }
+
+    public record TaskProgressResponse(
+            Long id, BigDecimal completedHectares, Long earnedAmount, String reportedBy, Instant reportedAt) {
+    }
+
+    public record TaskAdvanceRequest(
+            @Positive Long workerId,
+            @Positive Long seasonalWorkerId,
+            @Positive long amount,
+            @NotBlank @Size(max = 80) String idempotencyKey) {
+    }
+
+    public record TaskAdvanceResponse(
+            Long id,
+            Long workerId,
+            String workerName,
+            Long seasonalWorkerId,
+            String seasonalWorkerName,
+            long amount,
+            String paidBy,
+            Instant paidAt) {
     }
 
     public record StockItemRequest(@NotBlank @Size(max = 120) String name,
             @NotBlank @Size(max = 30) String unit, Long fieldId, @Positive Long unitPrice) {
+    }
+
+    public record StockItemUpdateRequest(
+            @NotBlank @Size(max = 120) String name,
+            @NotBlank @Size(max = 30) String unit) {
     }
 
     public record StockItemPriceRequest(@NotNull @Positive Long unitPrice) {
@@ -117,6 +201,30 @@ public final class ApiDtos {
     public record StockItemResponse(
             Long id, String name, String unit, double quantity, Long unitPrice,
             Long fieldId, String fieldName) {
+    }
+
+    public record FieldMaterialNeedRequest(
+            @NotNull Long fieldId,
+            @NotBlank @Size(max = 120) String materialName,
+            @NotBlank @Size(max = 30) String unit,
+            @NotNull @Positive Double quantity,
+            @Size(max = 240) String notes) {
+    }
+
+    public record FieldMaterialNeedPurchaseRequest(@NotNull Boolean purchased) {
+    }
+
+    public record FieldMaterialNeedResponse(
+            Long id,
+            Long fieldId,
+            String fieldName,
+            String materialName,
+            String unit,
+            double quantity,
+            String notes,
+            String createdBy,
+            Instant createdAt,
+            boolean purchased) {
     }
 
     public record StockItemPriceChangeResponse(
@@ -165,6 +273,11 @@ public final class ApiDtos {
             @NotNull @Positive Double sentQuantity) {
     }
 
+    public record StockOrderDecisionRequest(
+            @NotNull Boolean approved,
+            @Size(max = 240) String reason) {
+    }
+
     public record StockOrderResponse(
             Long id,
             Long itemId,
@@ -183,7 +296,51 @@ public final class ApiDtos {
             Long unitPriceAtDispatch,
             String status,
             Long fieldId,
-            String fieldName) {
+            String fieldName,
+            Instant technicalDecisionAt,
+            String technicalDecisionBy,
+            String technicalRejectionReason,
+            String updatedBy,
+            Instant updatedAt,
+            Long revisedFromId,
+            int revisionNumber) {
+    }
+
+    public record WorkPlanRequest(
+            @NotBlank @Size(max = 240) String title,
+            @NotNull Long fieldId,
+            @NotNull Long fieldManagerAccountId,
+            @NotNull LocalDate startDate,
+            @NotNull LocalDate endDate,
+            LocalTime startTime,
+            LocalTime endTime) {
+    }
+
+    public record WorkPlanResponse(
+            Long id,
+            String title,
+            Long fieldId,
+            String fieldName,
+            Long fieldManagerAccountId,
+            String fieldManagerUsername,
+            LocalDate startDate,
+            LocalDate endDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String createdBy,
+            Instant createdAt,
+            String updatedBy,
+            Instant updatedAt,
+            String cancelledBy,
+            Instant cancelledAt,
+            String completedBy,
+            Instant completedAt) {
+    }
+
+    public record WorkPlanAssigneeResponse(Long id, String username, Long fieldId, String fieldName) {
+    }
+
+    public record WorkPlanFieldResponse(Long id, String name, String location, String description) {
     }
 
     public enum MaterialAlertKind {
@@ -248,7 +405,8 @@ public final class ApiDtos {
             String fieldName,
             String idempotencyKey,
             boolean budgeted,
-            String reconciliationStatus) {
+            String reconciliationStatus,
+            List<EvidenceResponse> evidence) {
     }
 
     public record BudgetLimitRequest(@NotNull @PositiveOrZero Long fundingLimit) {
@@ -298,7 +456,16 @@ public final class ApiDtos {
             Instant recordedAt,
             String recordedBy,
             Long fieldId,
-            String fieldName) {
+            String fieldName,
+            List<EvidenceResponse> evidence) {
+    }
+
+    public record EvidenceResponse(
+            Long id,
+            String fileName,
+            String contentType,
+            String url,
+            Instant uploadedAt) {
     }
 
     public record PaymentRequest(@NotNull Long workerId, @Positive long amount) {
@@ -409,7 +576,9 @@ public final class ApiDtos {
             @NotBlank @Size(min = 5, max = 12) String password,
             @NotNull UserRole role,
             @NotBlank @Size(max = 40) String phoneNumber,
-            Long fieldId) {
+            Long fieldId,
+            @Positive Long monthlySalary,
+            @Positive Integer monthlyRequiredHours) {
     }
 
     public record DirectorRegistrationRequest(
@@ -424,12 +593,22 @@ public final class ApiDtos {
     public record AccountEnabledRequest(@NotNull Boolean enabled) {
     }
 
+    public record AccountUpdateRequest(
+            @NotBlank @Size(max = 80) String username,
+            @NotBlank @Size(max = 40) String phoneNumber,
+            @Size(min = 5, max = 12) String password,
+            Long fieldId,
+            @Positive Long monthlySalary,
+            @Positive Integer monthlyRequiredHours) {
+    }
+
     public record AccountFieldRequest(@NotNull Long fieldId) {
     }
 
     public record AccountResponse(
             Long id, String username, UserRole role, boolean enabled,
-            String phoneNumber, Long fieldId, String fieldName) {
+            String phoneNumber, Long fieldId, String fieldName,
+            Long payrollWorkerId, Long monthlySalary, Integer monthlyRequiredHours) {
     }
 
     public record FieldCreateRequest(
@@ -443,6 +622,7 @@ public final class ApiDtos {
             String name,
             String location,
             String description,
+            boolean active,
             List<AccountResponse> managers) {
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,7 +45,10 @@ public class FieldManagementController {
         List<PlantationField> visible = account.getRole() == UserRole.FIELD_MANAGER
                 ? List.of(requireManagerField(account))
                 : fields.findAll();
-        return visible.stream().map(this::response).toList();
+        return visible.stream()
+                .filter(field -> account.getRole() == UserRole.DIRECTOR || field.isActive())
+                .map(this::response)
+                .toList();
     }
 
     @PostMapping
@@ -81,13 +85,32 @@ public class FieldManagementController {
         return response(field);
     }
 
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('DIRECTOR')")
+    public FieldResponse archiveField(@PathVariable Long id) {
+        PlantationField field = fields.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Field not found."));
+        if (field.isActive()) {
+            field.archive();
+            users.findAll().stream()
+                    .filter(user -> user.getField() != null && user.getField().getId().equals(id))
+                    .forEach(user -> {
+                        user.updateEnabled(false);
+                        if (user.getPayrollWorker() != null) {
+                            user.getPayrollWorker().updateActive(false);
+                        }
+                    });
+        }
+        return response(field);
+    }
+
     private AppUser currentAccount(Principal principal) {
         return users.findByUsername(principal.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Account not found."));
     }
 
     private PlantationField requireManagerField(AppUser manager) {
-        if (manager.getField() == null) {
+        if (manager.getField() == null || !manager.getField().isActive()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This field-manager account has no assigned field.");
         }
         return manager.getField();
@@ -96,13 +119,19 @@ public class FieldManagementController {
     private FieldResponse response(PlantationField field) {
         List<AccountResponse> managers = users.findAll().stream()
                 .filter(user -> user.getRole() == UserRole.FIELD_MANAGER)
+                .filter(user -> !user.isDeleted())
                 .filter(user -> user.getField() != null && user.getField().getId().equals(field.getId()))
                 .map(user -> new AccountResponse(
                         user.getId(), user.getUsername(), user.getRole(), user.isEnabled(),
                         user.getPhoneNumber() == null ? "" : user.getPhoneNumber(),
-                        field.getId(), field.getName()))
+                        field.getId(), field.getName(),
+                        user.getPayrollWorker() == null ? null : user.getPayrollWorker().getId(),
+                        user.getPayrollWorker() == null ? null : user.getPayrollWorker().getSalary(),
+                        user.getPayrollWorker() == null
+                                ? null
+                                : user.getPayrollWorker().getMonthlyRequiredHours()))
                 .toList();
         return new FieldResponse(field.getId(), field.getName(), field.getLocation(),
-                field.getDescription(), managers);
+                field.getDescription(), field.isActive(), managers);
     }
 }

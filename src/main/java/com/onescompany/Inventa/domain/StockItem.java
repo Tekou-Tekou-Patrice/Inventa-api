@@ -30,6 +30,8 @@ public class StockItem {
 
     private Long unitPrice;
 
+    private Boolean active = true;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "field_id")
     private PlantationField field;
@@ -57,6 +59,12 @@ public class StockItem {
         }
         this.unitPrice = unitPrice;
     }
+    public void updateDetails(String name, String unit) {
+        this.name = name;
+        this.unit = unit;
+    }
+    public void archive() { this.active = false; }
+    public boolean isActive() { return !Boolean.FALSE.equals(active); }
     public void assignField(PlantationField field) { this.field = field; }
 
     public Long getId() { return id; }

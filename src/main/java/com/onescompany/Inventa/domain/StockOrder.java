@@ -21,6 +21,10 @@ import jakarta.persistence.Table;
 public class StockOrder {
     public enum Status {
         ORDERED,
+        PENDING_TECHNICAL_APPROVAL,
+        TECHNICALLY_APPROVED,
+        TECHNICALLY_REJECTED,
+        CANCELLED,
         SENT,
         RECEIVED
     }
@@ -32,6 +36,17 @@ public class StockOrder {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "item_id", nullable = false)
     private StockItem item;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "request_field_id")
+    private PlantationField field;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "revised_from_id")
+    private StockOrder revisedFrom;
+
+    @Column(nullable = false, columnDefinition = "integer default 1")
+    private int revisionNumber = 1;
 
     @Column(nullable = false)
     private double orderedQuantity;
@@ -56,22 +71,76 @@ public class StockOrder {
     private String sentBy;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 12)
+    @Column(nullable = false, length = 32)
     private Status status;
+    private Instant technicalDecisionAt;
+    @Column(length = 80)
+    private String technicalDecisionBy;
+    @Column(length = 240)
+    private String technicalRejectionReason;
+    private String updatedBy;
+    private Instant updatedAt;
 
     protected StockOrder() {
     }
 
     public StockOrder(StockItem item, double orderedQuantity, String description, String orderedBy) {
         this.item = item;
+        this.field = item.getField();
         this.orderedQuantity = orderedQuantity;
         this.description = description;
         this.orderedBy = orderedBy;
         this.orderedAt = Instant.now();
-        this.status = Status.ORDERED;
+        this.status = Status.PENDING_TECHNICAL_APPROVAL;
+    }
+
+    public void decide(boolean approved, String reason, String decidedBy) {
+        if (status != Status.PENDING_TECHNICAL_APPROVAL && status != Status.ORDERED) {
+            throw new IllegalStateException("Only a pending stock order can receive a technical decision.");
+        }
+        if (!approved && (reason == null || reason.isBlank())) {
+            throw new IllegalArgumentException("A rejection reason is required.");
+        }
+        this.technicalDecisionAt = Instant.now();
+        this.technicalDecisionBy = decidedBy;
+        this.technicalRejectionReason = approved ? null : reason.trim();
+        this.status = approved ? Status.TECHNICALLY_APPROVED : Status.TECHNICALLY_REJECTED;
+    }
+
+    public StockOrder(StockItem item, double quantity, String description, String orderedBy, StockOrder revisedFrom) {
+        this(item, quantity, description, orderedBy);
+        this.field = revisedFrom.getField();
+        this.revisedFrom = revisedFrom;
+        this.revisionNumber = revisedFrom.getRevisionNumber() + 1;
+    }
+
+    public void updateRequest(StockItem item, double quantity, String description, String updatedBy) {
+        if (status != Status.PENDING_TECHNICAL_APPROVAL && status != Status.ORDERED) {
+            throw new IllegalStateException("Only a pending stock request can be edited.");
+        }
+        if (!item.getField().getId().equals(getField().getId())) {
+            throw new IllegalArgumentException("A request cannot be moved to another field.");
+        }
+        this.item = item;
+        this.orderedQuantity = quantity;
+        this.description = description;
+        this.updatedBy = updatedBy;
+        this.updatedAt = Instant.now();
+    }
+
+    public void cancel(String cancelledBy) {
+        if (status != Status.PENDING_TECHNICAL_APPROVAL && status != Status.ORDERED) {
+            throw new IllegalStateException("Only a pending stock request can be cancelled.");
+        }
+        this.status = Status.CANCELLED;
+        this.updatedBy = cancelledBy;
+        this.updatedAt = Instant.now();
     }
 
     public void dispatch(double sentQuantity, long unitPrice, String sentBy) {
+        if (status != Status.TECHNICALLY_APPROVED) {
+            throw new IllegalStateException("Technical approval is required before dispatch.");
+        }
         this.receivedQuantity = sentQuantity;
         this.unitPriceAtDispatch = unitPrice;
         this.paidAmount = calculateTotal(unitPrice, sentQuantity);
@@ -99,6 +168,10 @@ public class StockOrder {
 
     public Long getId() { return id; }
     public StockItem getItem() { return item; }
+    public PlantationField getField() { return field != null ? field : item.getField(); }
+    public StockOrder getRevisedFrom() { return revisedFrom; }
+    public Long getRevisedFromId() { return revisedFrom == null ? null : revisedFrom.getId(); }
+    public int getRevisionNumber() { return revisionNumber; }
     public double getOrderedQuantity() { return orderedQuantity; }
     public double getReceivedQuantity() { return receivedQuantity; }
     public String getDescription() { return description; }
@@ -111,4 +184,9 @@ public class StockOrder {
     public Instant getSentAt() { return sentAt; }
     public String getSentBy() { return sentBy; }
     public Status getStatus() { return status; }
+    public Instant getTechnicalDecisionAt() { return technicalDecisionAt; }
+    public String getTechnicalDecisionBy() { return technicalDecisionBy; }
+    public String getTechnicalRejectionReason() { return technicalRejectionReason; }
+    public String getUpdatedBy() { return updatedBy; }
+    public Instant getUpdatedAt() { return updatedAt; }
 }

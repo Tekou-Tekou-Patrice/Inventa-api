@@ -26,6 +26,9 @@ public class Worker {
     @Column(nullable = false)
     private long salary;
 
+    @Column(columnDefinition = "integer default 208")
+    private Integer monthlyRequiredHours;
+
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean salaryIsIndividual;
 
@@ -59,10 +62,23 @@ public class Worker {
         this.phoneNumber = phoneNumber;
     }
 
+    public Worker(
+            String name,
+            String groupName,
+            long salary,
+            int monthlyRequiredHours,
+            String phoneNumber,
+            PlantationField field) {
+        this(name, groupName, salary, phoneNumber, field);
+        this.monthlyRequiredHours = monthlyRequiredHours;
+    }
+
     public void updateSalary(long salary) {
         this.salary = salary;
         this.salaryIsIndividual = true;
     }
+    public void updateName(String name) { this.name = name; }
+    public void updateMonthlyRequiredHours(int hours) { this.monthlyRequiredHours = hours; }
     public void updateDefaultSalary(long salary) {
         if (!salaryIsIndividual) {
             this.salary = salary;
@@ -75,6 +91,7 @@ public class Worker {
     public String getName() { return name; }
     public String getGroupName() { return groupName; }
     public long getSalary() { return salary; }
+    public Integer getMonthlyRequiredHours() { return monthlyRequiredHours; }
     public boolean isSalaryIsIndividual() { return salaryIsIndividual; }
     public boolean isActive() { return active; }
     public String getPhoneNumber() { return phoneNumber; }

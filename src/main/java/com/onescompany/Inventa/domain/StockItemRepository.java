@@ -6,4 +6,6 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
     boolean existsByNameIgnoreCase(String name);
 
     boolean existsByNameIgnoreCaseAndFieldId(String name, Long fieldId);
+
+    boolean existsByNameIgnoreCaseAndFieldIdAndIdNot(String name, Long fieldId, Long id);
 }
